@@ -1,0 +1,67 @@
+# Build directories
+build/
+cmake-build-*/
+out/
+
+# Qt Creator & IDE user files
+.qtcreator/
+*.user
+*.user.*
+CMakeLists.txt.user*
+.qtc_clangd/
+.cache/
+.vscode/
+.idea/
+
+# CMake & Ninja / Make artifacts
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.ninja
+.ninja_deps
+.ninja_log
+compile_commands.json
+DartConfiguration.tcl
+Testing/
+
+# Compiled binaries, libraries, and object files
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.dylib
+*.exe
+*.pdb
+*.ilk
+*.exp
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Qt generated files
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+*_autogen/
+.rcc/
+.qt/
+qmltypes/
+meta_types/
+*.qm
+
+# Android / Gradle generated files
+android/.gradle/
+android/build/
+android/local.properties
+*.iml
+
+# OS & temporary files
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*~
