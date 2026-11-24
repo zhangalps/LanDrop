@@ -10,9 +10,10 @@
 powershell -ExecutionPolicy Bypass -File .\installer\build_installer.ps1
 ```
 
-执行完成后，将在 `installer/output/` 下直接生成单个双击可安装的图形化安装程序：
+执行完成后，将在 `installer/output/` 下统一输出多平台可上传的分发文件：
 
-- `installer/output/LanDrop-Setup-1.0.0.exe`
+- `installer/output/LanDrop-Setup-1.0.0.exe`（Windows 单文件图形化安装程序）
+- `installer/output/LanDrop-Android-1.0.0[-debug].apk`（自动从 `build/` 下搜集最新编译的 Android APK）
 
 用户下载后直接双击该 `.exe` 即可进入中文图形化安装向导（支持自定义安装路径、创建桌面快捷方式、创建开始菜单快捷方式、注册 Windows「应用和功能」卸载项以及安装后立即启动）。
 

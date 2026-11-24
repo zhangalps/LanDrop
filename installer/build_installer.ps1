@@ -5,7 +5,8 @@ param(
     [string]$QtBinDir = "F:\Qt\6.12.0\mingw_64\bin",
     [string]$MinGwBinDir = "F:\Qt\Tools\mingw1310_64\bin",
     [string]$CMakeBinDir = "F:\Qt\Tools\CMake_64\bin",
-    [string]$Version = "1.0.0"
+    [string]$Version = "1.0.0",
+    [string]$ApkPath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -101,4 +102,35 @@ if ($iscc) {
 }
 
 $sizeMb = [Math]::Round((Get-Item $SetupExePath).Length / 1MB, 2)
-Write-Host "Done! Single-file Windows installer ready: $SetupExePath ($sizeMb MB)" -ForegroundColor Green
+Write-Host "Windows installer ready: $SetupExePath ($sizeMb MB)" -ForegroundColor Green
+
+Write-Host "[5/5] Collecting latest Android APK into installer/output/..." -ForegroundColor Cyan
+$sourceApk = $null
+if ($ApkPath -and (Test-Path $ApkPath)) {
+    $sourceApk = Get-Item $ApkPath
+} else {
+    $buildRoot = Join-Path $ProjectRoot "build"
+    if (Test-Path $buildRoot) {
+        $apks = Get-ChildItem -Path $buildRoot -Filter "*.apk" -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -notlike "*-unsigned.apk" } |
+            Sort-Object LastWriteTime -Descending
+        if (-not $apks) {
+            $apks = Get-ChildItem -Path $buildRoot -Filter "*.apk" -Recurse -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending
+        }
+        $sourceApk = $apks | Select-Object -First 1
+    }
+}
+
+if ($sourceApk) {
+    $isDebugApk = $sourceApk.Name -match "debug"
+    $apkOutName = if ($isDebugApk) { "LanDrop-Android-$Version-debug.apk" } else { "LanDrop-Android-$Version.apk" }
+    $apkOutPath = Join-Path $OutputRoot $apkOutName
+    Copy-Item $sourceApk.FullName $apkOutPath -Force
+    $apkSizeMb = [Math]::Round((Get-Item $apkOutPath).Length / 1MB, 2)
+    Write-Host "Android APK ready: $apkOutPath ($apkSizeMb MB, from $($sourceApk.Name))" -ForegroundColor Green
+} else {
+    Write-Host "No Android APK found under build/ (skipping APK copy)." -ForegroundColor Yellow
+}
+
+Write-Host "All release artifacts collected in: $OutputRoot" -ForegroundColor Green
