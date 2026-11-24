@@ -1,6 +1,6 @@
 #include "core/DeviceDiscovery.h"
-#include "core/GroupSession.h"
-#include "core/TransferSession.h"
+#include "core/session/GroupManager.h"
+#include "core/session/TransferManager.h"
 #include "platform/AndroidHelper.h"
 
 #include <QGuiApplication>
@@ -109,7 +109,12 @@ int main(int argc, char *argv[])
 
     engine.loadFromModule(QStringLiteral("LanDrop"), QStringLiteral("Main"));
 
-    QTimer::singleShot(300, &platformHelper, &landrop::AndroidHelper::requestLocalNetworkPermission);
+    QTimer::singleShot(300, &platformHelper, [&platformHelper]() {
+        platformHelper.requestLocalNetworkPermission();
+        platformHelper.startKeepAliveService();
+    });
+
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, &platformHelper, &landrop::AndroidHelper::stopKeepAliveService);
 
     // When returning from background (e.g. after viewing a file in WPS), refresh discovery
     // and silently reconnect any 1v1/group sessions frozen by the mobile OS.
@@ -118,6 +123,7 @@ int main(int argc, char *argv[])
         &app, [&platformHelper, &discovery, &transferManager, &groupManager](Qt::ApplicationState state) {
             if (state == Qt::ApplicationActive) {
                 platformHelper.acquireMulticastLock();
+                platformHelper.startKeepAliveService();
                 discovery.refreshNow();
                 transferManager.reconnectActiveSessions();
                 groupManager.reconnectDroppedGroups();

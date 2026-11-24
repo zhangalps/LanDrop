@@ -1,12 +1,11 @@
 #pragma once
 
+#include "platform/AndroidNetworkBridge.h"
+
+#include <QList>
 #include <QObject>
 #include <QString>
 #include <QUrl>
-
-#ifdef Q_OS_ANDROID
-#include <QJniObject>
-#endif
 
 namespace landrop {
 
@@ -29,6 +28,8 @@ public:
 
     void acquireMulticastLock();
     void releaseMulticastLock();
+    void startKeepAliveService();
+    void stopKeepAliveService();
     void requestLocalNetworkPermission();
 
     static QString localDeviceName();
@@ -59,10 +60,7 @@ signals:
     void filesPicked(const QList<QUrl> &urls);
 
 private:
-#ifdef Q_OS_ANDROID
-    QJniObject m_multicastLock;
-    QJniObject m_wifiLock;
-#endif
+    AndroidNetworkBridge m_networkBridge;
 };
 
 } // namespace landrop

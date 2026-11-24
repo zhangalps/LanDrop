@@ -2,6 +2,8 @@
 build/
 cmake-build-*/
 out/
+installer/dist/
+installer/output/
 
 # Qt Creator & IDE user files
 .qtcreator/

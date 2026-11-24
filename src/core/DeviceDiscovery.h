@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/Protocol.h"
+#include "core/model/NearbyGroupModel.h"
 
 #include <QAbstractListModel>
 #include <QJsonArray>
@@ -21,63 +22,6 @@ struct DiscoveredDevice {
     int unreadCount = 0;
 };
 
-struct DiscoveredGroup {
-    QString groupId;
-    QString groupName;
-    QString hostId;
-    QString hostName;
-    QString hostIp;
-    quint16 hostPort = 0;
-    int memberCount = 1;
-    bool hasPin = false;
-    bool isHost = false;
-    bool isJoined = false;
-    int unreadCount = 0;
-    qint64 lastSeenMs = 0;
-};
-
-class NearbyGroupModel : public QAbstractListModel
-{
-    Q_OBJECT
-    Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
-
-public:
-    enum Roles {
-        GroupIdRole = Qt::UserRole + 1,
-        GroupNameRole,
-        HostIdRole,
-        HostNameRole,
-        HostIpRole,
-        HostPortRole,
-        MemberCountRole,
-        HasPinRole,
-        IsHostRole,
-        IsJoinedRole,
-        UnreadCountRole
-    };
-
-    explicit NearbyGroupModel(QObject *parent = nullptr);
-
-    int rowCount(const QModelIndex &parent = QModelIndex()) const override;
-    QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
-    QHash<int, QByteArray> roleNames() const override;
-
-    void upsertGroup(DiscoveredGroup group);
-    void removeGroup(const QString &groupId);
-    void setMembershipState(const QString &groupId, bool isHost, bool isJoined, int memberCount, int unreadCount);
-    void pruneTimedOut(qint64 nowMs, qint64 timeoutMs);
-
-signals:
-    void countChanged();
-
-private:
-    int indexOfGroup(const QString &groupId) const;
-
-    QVector<DiscoveredGroup> m_groups;
-    QHash<QString, int> m_cachedUnread;
-    QHash<QString, QPair<bool, bool>> m_cachedMembership; // groupId -> {isHost, isJoined}
-};
-
 class DeviceDiscovery : public QAbstractListModel
 {
     Q_OBJECT
@@ -86,6 +30,7 @@ class DeviceDiscovery : public QAbstractListModel
     Q_PROPERTY(QString defaultDeviceName READ defaultDeviceName CONSTANT)
     Q_PROPERTY(QString localIpAddress READ localIpAddress NOTIFY localIpAddressChanged)
     Q_PROPERTY(bool online READ isOnline NOTIFY onlineChanged)
+    Q_PROPERTY(bool discoverable READ isDiscoverable WRITE setDiscoverable NOTIFY discoverableChanged)
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
     Q_PROPERTY(QObject *groupModel READ groupModel CONSTANT)
 
@@ -115,11 +60,13 @@ public:
     QString localDeviceName() const { return m_localDeviceName; }
     QString defaultDeviceName() const { return m_defaultDeviceName; }
     QString localIpAddress() const { return m_localIpAddress; }
-    bool isOnline() const { return m_online; }
+    bool isOnline() const { return m_online && m_discoverable; }
+    bool isDiscoverable() const { return m_discoverable; }
     NearbyGroupModel *groupModel() { return &m_groupModel; }
 
     Q_INVOKABLE void setLocalDeviceName(const QString &name);
     Q_INVOKABLE void resetLocalDeviceName();
+    Q_INVOKABLE void setDiscoverable(bool enabled);
 
     void setHostedGroups(const QJsonArray &groups);
     void start(quint16 discoveryPort = kDiscoveryPort);
@@ -136,6 +83,7 @@ signals:
     void localDeviceNameChanged(const QString &newName);
     void localIpAddressChanged();
     void onlineChanged();
+    void discoverableChanged();
     void countChanged();
 
 private slots:
@@ -145,6 +93,14 @@ private slots:
 
 private:
     int indexOfDevice(const QString &deviceId) const;
+    void broadcastPayload(const QByteArray &payload);
+    void sendOfflineNotice();
+    void parseAnnouncedGroups(const QJsonArray &groupsArr,
+                              const QString &hostId,
+                              const QString &hostName,
+                              const QString &hostIp,
+                              quint16 hostPort,
+                              qint64 nowMs);
 
     QString m_localDeviceId;
     QString m_localDeviceName;
@@ -154,12 +110,13 @@ private:
     quint16 m_tcpPort = 0;
     quint16 m_discoveryPort = kDiscoveryPort;
     bool m_online = false;
+    bool m_discoverable = true;
 
     QUdpSocket m_udpSocket;
     QTimer m_broadcastTimer;
     QTimer m_pruneTimer;
     QVector<DiscoveredDevice> m_devices;
-    QHash<QString, QPair<int, int>> m_cachedSessionStatus; // deviceId -> {state, unread}
+    QHash<QString, QPair<int, int>> m_cachedSessionStatus;
 
     QJsonArray m_hostedGroups;
     NearbyGroupModel m_groupModel;

@@ -18,15 +18,40 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS
 qt_standard_project_setup(REQUIRES 6.5)
 
 set(LANDROP_CORE_SOURCES
+    # Protocol & Codec
     src/core/Protocol.h
     src/core/PacketCodec.h
     src/core/PacketCodec.cpp
+    # Data Models
+    src/core/model/MessageListModel.h
+    src/core/model/MessageListModel.cpp
+    src/core/model/NearbyGroupModel.h
+    src/core/model/NearbyGroupModel.cpp
+    src/core/model/GroupMemberListModel.h
+    src/core/model/GroupMemberListModel.cpp
+    # LAN Discovery
     src/core/DeviceDiscovery.h
     src/core/DeviceDiscovery.cpp
-    src/core/TransferSession.h
-    src/core/TransferSession.cpp
-    src/core/GroupSession.h
-    src/core/GroupSession.cpp
+    # Sessions & Managers
+    src/core/session/PeerSession.h
+    src/core/session/PeerSession.cpp
+    src/core/session/PeerSessionTransfer.cpp
+    src/core/session/TransferManager.h
+    src/core/session/TransferManager.cpp
+    src/core/session/GroupFileFetcher.h
+    src/core/session/GroupFileFetcher.cpp
+    src/core/session/GroupRoom.h
+    src/core/session/GroupRoom.cpp
+    src/core/session/GroupRoomPackets.cpp
+    src/core/session/GroupManager.h
+    src/core/session/GroupManager.cpp
+    # Platform Bridges & Facade
+    src/platform/AndroidNetworkBridge.h
+    src/platform/AndroidNetworkBridge.cpp
+    src/platform/AndroidStorageBridge.h
+    src/platform/AndroidStorageBridge.cpp
+    src/platform/AndroidIntentBridge.h
+    src/platform/AndroidIntentBridge.cpp
     src/platform/AndroidHelper.h
     src/platform/AndroidHelper.cpp
 )
@@ -66,18 +91,37 @@ qt_add_resources(LanDrop "landrop_icons"
         resources/icons/landrop.png
 )
 
-set_source_files_properties(qml/Main.qml PROPERTIES QT_RESOURCE_ALIAS Main.qml)
-set_source_files_properties(qml/DeviceListPane.qml PROPERTIES QT_RESOURCE_ALIAS DeviceListPane.qml)
-set_source_files_properties(qml/ChatPane.qml PROPERTIES QT_RESOURCE_ALIAS ChatPane.qml)
+set(LANDROP_QML_FILES
+    qml/Theme.qml
+    qml/Main.qml
+    qml/DeviceListPane.qml
+    qml/ChatPane.qml
+    qml/components/AvatarBadge.qml
+    qml/components/DeviceListCard.qml
+    qml/components/ChatHeaderBar.qml
+    qml/components/MediaCard.qml
+    qml/components/FileCard.qml
+    qml/components/MessageRow.qml
+    qml/components/ChatInputBar.qml
+    qml/components/ImageLightbox.qml
+    qml/dialogs/ConfirmDialog.qml
+    qml/dialogs/RenameDialog.qml
+    qml/dialogs/CreateGroupDialog.qml
+    qml/dialogs/JoinPinDialog.qml
+    qml/dialogs/DirectConnectDialog.qml
+    qml/dialogs/GroupMembersDialog.qml
+)
+
+foreach(qml_file IN LISTS LANDROP_QML_FILES)
+    get_filename_component(qml_basename "${qml_file}" NAME)
+    set_source_files_properties("${qml_file}" PROPERTIES QT_RESOURCE_ALIAS "${qml_basename}")
+endforeach()
 
 qt_add_qml_module(LanDrop
     URI LanDrop
     VERSION 1.0
     RESOURCE_PREFIX /qt/qml
-    QML_FILES
-        qml/Main.qml
-        qml/DeviceListPane.qml
-        qml/ChatPane.qml
+    QML_FILES ${LANDROP_QML_FILES}
 )
 
 target_link_libraries(LanDrop PRIVATE
@@ -108,7 +152,6 @@ install(TARGETS LanDrop
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
-# Unit tests (optional when Qt6::Test is available)
 option(LANDROP_BUILD_TESTS "Build LanDrop unit tests" ON)
 if(LANDROP_BUILD_TESTS AND NOT ANDROID)
     find_package(Qt6 QUIET COMPONENTS Test)

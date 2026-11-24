@@ -1,7 +1,8 @@
-#include "core/GroupSession.h"
+#include "core/DeviceDiscovery.h"
 #include "core/PacketCodec.h"
 #include "core/Protocol.h"
-#include "core/TransferSession.h"
+#include "core/session/GroupManager.h"
+#include "core/session/TransferManager.h"
 
 #include <QCryptographicHash>
 #include <QFile>
@@ -318,6 +319,32 @@ private slots:
         hostGm.leaveOrDisbandActiveGroup();
         QTRY_VERIFY_WITH_TIMEOUT(disbandSpy.count() >= 1, 3000);
         QVERIFY(!memberGm.activeGroupIsJoined());
+    }
+
+    void testDeviceOnlineOfflineToggle()
+    {
+        constexpr quint16 kTestPort = 45499;
+        DeviceDiscovery alice(QStringLiteral("dev-a"), QStringLiteral("AlicePC"), QStringLiteral("AlicePC"),
+                              QStringLiteral("windows"), 45501);
+        DeviceDiscovery bob(QStringLiteral("dev-b"), QStringLiteral("BobPhone"), QStringLiteral("BobPhone"),
+                            QStringLiteral("android"), 45502);
+        alice.start(kTestPort);
+        bob.start(kTestPort);
+
+        QTRY_COMPARE_WITH_TIMEOUT(bob.rowCount(), 1, 3000);
+
+        // Alice goes offline -> Bob removes Alice immediately without waiting 6s timeout
+        alice.setDiscoverable(false);
+        QVERIFY(!alice.isOnline());
+        QTRY_COMPARE_WITH_TIMEOUT(bob.rowCount(), 0, 2000);
+
+        // Alice goes back online -> Bob rediscovers Alice immediately
+        alice.setDiscoverable(true);
+        QVERIFY(alice.isOnline());
+        QTRY_COMPARE_WITH_TIMEOUT(bob.rowCount(), 1, 3000);
+
+        alice.stop();
+        bob.stop();
     }
 };
 

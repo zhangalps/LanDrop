@@ -15,6 +15,9 @@
 - **REQ-002**：个人聊天与群聊功能 — `Verified (已验证)`
 - **REQ-003**：手机端二级界面系统返回键/手势直接退回桌面问题修复 — `Verified (已验证)`
 - **REQ-004**：定制简约分享主题应用图标（Windows & Android 全端替换） — `Verified (已验证)`
+- **REQ-005**：Android 前台保活服务（避免切后台断联） — `Verified (已验证)`
+- **REQ-006**：支持用户设置上线和下线，下线后不会出现在附近的设备中 — `Verified (已验证)`
+- **REQ-007**：创建 Windows 平台引导安装程序脚本，支持用户通过引导安装该应用，把这些文件统一输出到文件夹 — `Verified (已验证)`
 
 ---
 
@@ -129,3 +132,54 @@ flowchart LR
 ### 2. 变更追溯
 - 图标资源生成：[landrop.png](file:///e:/projects/qt_projects/SimpleTrans/resources/icons/landrop.png)（512×512 透明圆角）、[landrop.ico](file:///e:/projects/qt_projects/SimpleTrans/resources/icons/landrop.ico)（多分辨率 Windows 图标）、`android/res/mipmap-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/ic_launcher.png`。
 - 工程配置：[landrop.rc](file:///e:/projects/qt_projects/SimpleTrans/resources/landrop.rc)、[CMakeLists.txt](file:///e:/projects/qt_projects/SimpleTrans/CMakeLists.txt)、[main.cpp](file:///e:/projects/qt_projects/SimpleTrans/src/main.cpp)（设置应用窗口图标）、[AndroidManifest.xml](file:///e:/projects/qt_projects/SimpleTrans/android/AndroidManifest.xml)（`android:icon="@mipmap/ic_launcher"`）。
+
+---
+
+## REQ-005：Android 切后台防断联（前台保活服务）
+
+- **当前状态**：`Verified (已验证)`
+- **提出时间**：2026-11-24
+- **原始需求**：Android 应用切换到后台后直接断联，增加后台保活措施避免断联。
+
+### 1. 实现方案与变更追溯
+- 新增纯 Android SDK 前台保活服务 [LanDropKeepAliveService.java](file:///e:/projects/qt_projects/SimpleTrans/android/src/org/landrop/app/LanDropKeepAliveService.java)（低优先级静默通知、点击返回主界面、划掉任务自动停止清理）。
+- 在 [AndroidManifest.xml](file:///e:/projects/qt_projects/SimpleTrans/android/AndroidManifest.xml) 声明 `FOREGROUND_SERVICE`、`FOREGROUND_SERVICE_DATA_SYNC`、`POST_NOTIFICATIONS` 及 `dataSync` 类型 `<service>`。
+- 在 [AndroidNetworkBridge.cpp](file:///e:/projects/qt_projects/SimpleTrans/src/platform/AndroidNetworkBridge.cpp)、[AndroidHelper.cpp](file:///e:/projects/qt_projects/SimpleTrans/src/platform/AndroidHelper.cpp) 与 [main.cpp](file:///e:/projects/qt_projects/SimpleTrans/src/main.cpp) 接入前台保活启停、通知权限申请及应用退出自动停止。
+
+---
+
+## REQ-006：支持用户手动设置上线与下线（下线后隐藏本机）
+
+- **当前状态**：`Verified (已验证)`
+- **提出时间**：2026-11-24
+- **原始需求**：支持用户设置上线和下线，下线后不会出现在附近的设备中。
+
+### 1. 设计方案
+- **协议与发现层**：在 [DeviceDiscovery.h](file:///e:/projects/qt_projects/SimpleTrans/src/core/DeviceDiscovery.h) / [DeviceDiscovery.cpp](file:///e:/projects/qt_projects/SimpleTrans/src/core/DeviceDiscovery.cpp) 新增 `discoverable` 属性（`setDiscoverable(bool)`）：
+  - 切换为下线（`false`）时立即停止 UDP 心跳定时器，并向局域网广播 `{"magic":"LDRP","type":"offline","deviceId":"..."}` 主动通知对端立即将本机从附近设备列表中移除（无需等待 5 秒超时）。
+  - 切换为上线（`true`）时立即恢复 UDP 广播定时器并发送一次心跳包。
+  - `isOnline()` 综合反映网络可达性与用户可见状态（`m_online && m_discoverable`）。
+- **UI 交互层**：在 [DeviceListPane.qml](file:///e:/projects/qt_projects/SimpleTrans/qml/DeviceListPane.qml) 顶部本机信息右侧增加极简胶囊状态切换按钮（`在线` / `已下线`），点击直接切换在线可见性且不误触发改名弹窗。
+
+### 2. 变更追溯与验证
+- 关联文件：[DeviceDiscovery.h](file:///e:/projects/qt_projects/SimpleTrans/src/core/DeviceDiscovery.h)、[DeviceDiscovery.cpp](file:///e:/projects/qt_projects/SimpleTrans/src/core/DeviceDiscovery.cpp)、[DeviceListPane.qml](file:///e:/projects/qt_projects/SimpleTrans/qml/DeviceListPane.qml)、[test_landrop.cpp](file:///e:/projects/qt_projects/SimpleTrans/tests/test_landrop.cpp)
+- 自动化验证：`LanDropTests::testDeviceOnlineOfflineToggle` 通过（全量 10/10 单元测试通过）。
+
+---
+
+## REQ-007：Windows 平台引导安装程序与统一输出目录
+
+- **当前状态**：`Verified (已验证)`
+- **提出时间**：2026-11-24
+- **原始需求**：创建 Windows 平台引导安装程序脚本，支持用户通过引导安装该应用，把这些文件统一输出到文件夹。
+
+### 1. 设计方案
+- **一键打包脚本**：[build_installer.ps1](file:///e:/projects/qt_projects/SimpleTrans/installer/build_installer.ps1) 自动执行 Release 构建、调用 `windeployqt` 收集 Qt6/QML 依赖与 MinGW 运行时 DLL，并封装为单文件图形化安装程序，统一输出至 `installer/output/LanDrop-Setup-1.0.0.exe`。
+- **原生单文件图形化安装向导（零外部依赖）**：
+  - 按职责拆分为 [Program.cs](file:///e:/projects/qt_projects/SimpleTrans/installer/setup_src/Program.cs)（DPI 适配与入口）、[InstallEngine.cs](file:///e:/projects/qt_projects/SimpleTrans/installer/setup_src/InstallEngine.cs)（内嵌压缩包流式解压、桌面/开始菜单快捷方式创建、Windows「应用和功能」卸载项注册与 `Uninstall.cmd` 生成）和 [InstallerForm.cs](file:///e:/projects/qt_projects/SimpleTrans/installer/setup_src/InstallerForm.cs)（现代中文引导安装界面与异步进度条），内嵌应用图标 `landrop.ico`。
+  - 同时保留 [LanDrop.iss](file:///e:/projects/qt_projects/SimpleTrans/installer/LanDrop.iss)（若本机安装 Inno Setup 6 时自动优先使用）。
+- **说明文档与版本控制**：新增 [installer/README.md](file:///e:/projects/qt_projects/SimpleTrans/installer/README.md)，并在 [.gitignore](file:///e:/projects/qt_projects/SimpleTrans/.gitignore) 中忽略 `installer/dist/` 与 `installer/output/` 构建产物。
+
+### 2. 变更追溯与验证
+- 关联文件：[build_installer.ps1](file:///e:/projects/qt_projects/SimpleTrans/installer/build_installer.ps1)、[Program.cs](file:///e:/projects/qt_projects/SimpleTrans/installer/setup_src/Program.cs)、[InstallEngine.cs](file:///e:/projects/qt_projects/SimpleTrans/installer/setup_src/InstallEngine.cs)、[InstallerForm.cs](file:///e:/projects/qt_projects/SimpleTrans/installer/setup_src/InstallerForm.cs)、[LanDrop.iss](file:///e:/projects/qt_projects/SimpleTrans/installer/LanDrop.iss)、[installer/README.md](file:///e:/projects/qt_projects/SimpleTrans/installer/README.md)、[.gitignore](file:///e:/projects/qt_projects/SimpleTrans/.gitignore)
+- 端到端验证：执行 `.\installer\build_installer.ps1` 成功编译 Release 版本并在 `installer/output/` 直接生成单文件图形化安装程序 `LanDrop-Setup-1.0.0.exe`（34.82 MB）。
